@@ -1,8 +1,11 @@
 #!/bin/bash -e
 
-while getopts ":s:i:e:m:u:p:a:c:h" arg
+while getopts ":v:t:z:r:m:w:h" arg
 do
   case "$arg" in
+    v)
+      kafka_version=$OPTARG #1.1.0
+    ;;
     t)
       topic=$OPTARG       # 'admin'
     ;;
@@ -24,6 +27,7 @@ do
       echo "Options are:"
       echo ""
       echo "      OPTION    ENV-VAR        DESCRIPTION                                                           EXAMPLE ('' does NOT indicate default value)"
+      echo "        -v      kafka_version  The kafka version you are running, this flag must be set              0.10.0 or 1.1.0"
       echo "        -t      topic          A kafka topic you want emptied.                                       import-observations-extracted"
       echo "        -z      zookeeper_url  The zookeeper url, defaults to                                        localhost:2181"
       echo "        -r      retention      The new retention of topic in secs, defaults to                       86400000"
@@ -36,16 +40,32 @@ do
     ;;
   esac
 done
-
-topics=('testing')
-if [ -n "$topic" ]; then
-    echo "new topic: $topic"
-    topics=("${topics[@]}" $topic)
+echo ""
+# Check kafka version is set
+if [ -z $kafka_version ]; then
+    echo "Missing kafka version"
+    exit 1
 fi
-
+kv=$kafka_version
+echo "kafka version: $kv"
+echo ""
+if [ -z $zookeeper_url ]; then
+    # Set default zookeeper_url
+    zookeeper_url="localhost:2181"
+fi
+echo ""
+echo "zookeeper url is set to: $zookeeper_url"
+echo ""
+if [ -n "$topic" ]; then
+    echo "topics: $topic"
+    topiclist=($topic)
+    echo ""
+elif [ -z "$topic" ]; then
+    topiclist=`eval "/usr/local/Cellar/kafka/1.1.0/bin/kafka-topics --zookeeper $zookeeper_url --list"`
+fi
+topics=($(echo $topiclist | tr ',' "\n"))
 echo "The following kafka topics are going to be bled:"
 echo ""
-
 for i in "${topics[@]}"
 do
     :
@@ -59,12 +79,6 @@ if [  -z "$retention" ]; then
 fi
 echo "retention is set to: $retention"
 
-echo ""
-# Set default zookeeper_url
-if [  -z "$zookeeper_url" ]; then
-    zookeeper_url="localhost:2181"
-fi
-echo "zookeeper url is set to: $zookeeper_url"
 
 echo ""
 # Set default retention
@@ -76,10 +90,17 @@ echo "wait between changing retention times is: $wait"
 echo "-----------------------------------"
 echo "STEP 1: Lower retention of kafka topics"
 echo ""
+if [[ $kv == 0.* ]]; then
+    decrease_retention="/usr/local/Cellar/kafka/$kv/bin/kafka-topics --zookeeper $zookeeper_url --alter --config retention.ms=1000 --topic"
+    increase_retention="/usr/local/Cellar/kafka/$kv/bin/kafka-topics --zookeeper $zookeeper_url --alter --config retention.ms=$retention --topic"
+elif [[ $kv == 1.* ]]; then
+    decrease_retention="/usr/local/Cellar/kafka/$kv/bin/kafka-configs --zookeeper localhost:2181 --entity-type topics --alter -add-config retention.ms=1000 --entity-name"
+    increase_retention="/usr/local/Cellar/kafka/$kv/bin/kafka-configs --zookeeper localhost:2181 --entity-type topics --alter -add-config retention.ms=$retention --entity-name"
+fi
 for i in "${topics[@]}"
 do
     :
-    bleed_topic="/usr/local/Cellar/kafka/0.10.2.0/bin/kafka-topics --zookeeper $zookeeper_url --alter --topic $i --config retention.ms=1000"
+    bleed_topic="$decrease_retention $i"
     echo $bleed_topic
     eval $bleed_topic
     echo "bleeding topic: $i"
@@ -97,7 +118,7 @@ echo ""
 for i in "${topics[@]}"
 do
     :
-    conf_topic="/usr/local/Cellar/kafka/0.10.2.0/bin/kafka-topics --zookeeper $zookeeper_url --alter --topic $i --config retention.ms=$retention"
+    conf_topic="$increase_retention $i"
     echo $conf_topic
     eval $conf_topic
     echo "configured retention of topic: $i"
