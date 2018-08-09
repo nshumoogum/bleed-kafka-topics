@@ -23,16 +23,22 @@ Once messages have been added to kafka topics, one can drain all topics of all m
 
 otherwise it is possible to drain chosen topics with:
 
-`./drain-kafka-topics -t <topic1>,<topic2`
+`./drain-kafka-topics -t <topic1>,<topic2>`
 
 For more commands use the help (-h) flag, like so:
 
 `./drain-kafka-topics -h`
 
+### License
+
+See [LICENSE](LICENSE.md) for details.
+
 ### Contributing
 
 See [CONTRIBUTING](CONTRIBUTING.md) for details.
 
-### License
+---
 
-See [LICENSE](LICENSE.md) for details.
+### Thanks to
+* [@gedge](https://github.com/gedge)
+
