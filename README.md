@@ -1,6 +1,6 @@
 drain-kafka-topics
 ==================
-A tracking service for when one clocks in or out
+A bash script to remove messages in kafka topics by lowering the retention before upping the retention back to the default value or configured value.
 
 ### Installation
 
